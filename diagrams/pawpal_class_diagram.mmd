@@ -1,34 +1,37 @@
 classDiagram
     class Owner {
         - name: str
-        - preferences: dict
-        + add_pet(pet)
-        + remove_pet(pet)
+        - preferences: dict~str, str~
+        - pets: List~Pet~
+        + add_pet(pet: Pet) None
+        + remove_pet(pet: Pet) None
     }
 
     class Pet {
         - name: str
         - species: str
         - age: int
-        + add_task(task)
-        + remove_task(task)
+        - tasks: List~Task~
+        + add_task(task: Task) None
+        + remove_task(task: Task) None
     }
 
     class Task {
         - title: str
         - duration_minutes: int
         - priority: str
-        - due_time: datetime
-        + is_high_priority()
+        - due_time: Optional~datetime~
+        - notes: str
+        + is_high_priority() bool
     }
 
     class Scheduler {
-        + build_daily_plan(owner)
-        + sort_tasks(tasks)
-        + explain_plan()
+        + build_daily_plan(owner: Owner) List~Task~
+        + sort_tasks(tasks: List~Task~) List~Task~
+        + explain_plan(tasks: List~Task~) str
     }
 
-    Owner "1" o-- "0..*" Pet
-    Pet "1" o-- "0..*" Task
-    Scheduler ..> Owner
-    Scheduler ..> Task
+    Owner "1" o-- "0..*" Pet : owns
+    Pet "1" o-- "0..*" Task : has
+    Scheduler ..> Owner : reads
+    Scheduler ..> Task : orders
