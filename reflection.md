@@ -6,12 +6,12 @@
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
-
+My initial UML design used four classes with a clear ownership hierarchy: an Owner owns one or more Pet objects, each Pet has zero or more Task objects, and a separate Scheduler class operates on those objects to produce a daily plan. I modeled the Owner→Pet and Pet→Task relationships as aggregation (the "has-a" collections), and made Scheduler a dependency that reads an Owner and orders Task objects rather than owning any data itself. This keeps the data model (who has what) separate from the behavior (how a plan is built). Owner holds the person's name, their preferences, and their list of pets. Pet holds a name, species, and age. Task has a title, duration, priority, and optional due times and notes. Scheduler is responsible for building the plan and organizing the tasks. 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
-
+ The four class strucutres stayed the same except a few details. My initial UML showed the associations as diagram lines, but I hadn't listed the actual fields that hold those collections. During implementation I realized the relationships had to be backed by real state, so I added pets: List[Pet] to Owner and tasks: List[Task] to Pet, both using field(default_factory=list). I used default_factory specifically to avoid the shared-mutable-default bug — if I'd written pets: List[Pet] = [], every Owner would silently share the same list. I also added a notes: str field to Task that wasn't in my first sketch. Once I thought about explain_plan() needing to justify why a task was scheduled.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
