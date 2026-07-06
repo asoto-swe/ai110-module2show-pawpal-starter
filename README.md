@@ -114,6 +114,40 @@ with recurrence helpers on `Task` and completion handling on `Pet`.
   `Pet.complete_task()`, spawns a fresh pending copy at its next occurrence (`Task.spawn_next()`),
   so the routine keeps rolling forward without manual re-entry.
 
+## 🎨 Output Formatting
+
+The CLI demo (`python main.py`) uses friendly, professional output formatting:
+
+| Feature | How it's done | Library / function |
+|---------|---------------|--------------------|
+| **Structured tables** | The daily schedule prints as a bordered grid (`fancy_grid`) with aligned columns for Time, Task, Duration, Priority, Status, and Repeat. | [`tabulate`](https://pypi.org/project/tabulate/) via `schedule_table()` |
+| **Color-coded priority** | `HIGH` is red, `MEDIUM` yellow, `LOW` green, so urgency is visible at a glance. | `colorama` (`Fore`/`Style`) via `color_priority()` |
+| **Color-coded status** | Completed tasks show a green filled dot `●`; pending tasks a yellow hollow dot `○`. | `colorama` via `color_status()` |
+| **Task-type emojis** | Each task gets an emoji chosen from keywords in its title (🚶 walk, 🍽️ feed, 💊 meds, ✂️ groom, 🎾 play, 🏥 vet, 🧹 clean, 💧 water, 🐾 default). | `task_emoji()` + the `TASK_EMOJI` map |
+| **Colored section headers & alerts** | Bright cyan headers; conflict warnings printed in red/magenta, "all clear" in green. | `colorama` via `header()` |
+
+**Libraries used:** [`tabulate`](https://pypi.org/project/tabulate/) for the CLI table and
+[`colorama`](https://pypi.org/project/colorama/) for cross-platform ANSI colors (it translates
+ANSI codes on Windows). Both are listed in [`requirements.txt`](requirements.txt). On Windows the
+demo also switches stdout to UTF-8 (`sys.stdout.reconfigure`) so the emoji render correctly.
+
+The Streamlit app (`app.py`) achieves the same polish with native components — `st.table` for the
+schedule, `st.success` for confirmations, and `st.warning` for conflict alerts.
+
+Example (`python main.py`):
+
+```
+📋 Today's schedule (sorted by time)
+╒════════╤═════════════════════╤════════════╤════════════╤════════════╤══════════╕
+│ Time   │ Task                │ Duration   │ Priority   │ Status     │ Repeat   │
+╞════════╪═════════════════════╪════════════╪════════════╪════════════╪══════════╡
+│ 07:30  │ 🚶 Morning walk     │ 30 min     │ HIGH       │ ○ pending  │ daily    │
+│ 08:15  │ 🍽️ Feed breakfast   │ 10 min     │ HIGH       │ ● complete │ daily    │
+│ 12:00  │ 🏥 Vet phone call   │ 15 min     │ MEDIUM     │ ○ pending  │ -        │
+│ 18:10  │ 🎾 Playtime         │ 15 min     │ LOW        │ ○ pending  │ -        │
+╘════════╧═════════════════════╧════════════╧════════════╧════════════╧══════════╛
+```
+
 ## 📸 Demo Walkthrough
 
 Describe your app in numbered steps so a reader can follow along without watching a video:

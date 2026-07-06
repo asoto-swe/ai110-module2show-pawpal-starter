@@ -1,12 +1,42 @@
 """PawPal+ demo script.
 
 Builds a small owner/pet/task world and exercises the Scheduler's sorting,
-filtering, recurring-task, and conflict-detection logic in the terminal.
+filtering, recurring-task, and conflict-detection logic in the terminal --
+with color-coded, emoji-tagged, tabulated output for a friendlier CLI.
 """
 
+import sys
 from datetime import datetime, time
 
+from colorama import Fore, Style, init as colorama_init
+from tabulate import tabulate
+
 from pawpal_system import Owner, Pet, Task, Scheduler
+
+# Windows terminals default to cp1252, which can't encode emoji; switch stdout
+# to UTF-8 before colorama wraps it so the emoji below print cleanly.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
+
+# Reset colors automatically after every print and translate ANSI on Windows.
+colorama_init(autoreset=True)
+
+# Emoji chosen by matching keywords in the task title.
+TASK_EMOJI = {
+    "walk": "🚶",
+    "feed": "🍽️", "breakfast": "🍽️", "dinner": "🍽️", "meal": "🍽️",
+    "med": "💊", "pill": "💊",
+    "groom": "✂️",
+    "play": "🎾",
+    "vet": "🏥",
+    "litter": "🧹", "clean": "🧹",
+    "water": "💧",
+}
+
+PRIORITY_COLOR = {"high": Fore.RED, "medium": Fore.YELLOW, "low": Fore.GREEN}
+STATUS_COLOR = {"pending": Fore.YELLOW, "complete": Fore.GREEN}
 
 
 def today_at(hour: int, minute: int = 0) -> datetime:
@@ -17,6 +47,56 @@ def today_at(hour: int, minute: int = 0) -> datetime:
 def all_tasks(owner: Owner) -> list[Task]:
     """Flatten every task across all of the owner's pets."""
     return [task for pet in owner.pets for task in pet.tasks]
+
+
+def task_emoji(task: Task) -> str:
+    """Pick an emoji for a task based on keywords in its title."""
+    title = task.title.lower()
+    for keyword, emoji in TASK_EMOJI.items():
+        if keyword in title:
+            return emoji
+    return "🐾"  # default paw print
+
+
+def color_priority(priority: str) -> str:
+    """Return the priority label tinted by urgency."""
+    color = PRIORITY_COLOR.get(priority.lower(), "")
+    return f"{color}{priority.upper()}{Style.RESET_ALL}"
+
+
+def color_status(status: str) -> str:
+    """Return a status label with a colored dot indicator."""
+    color = STATUS_COLOR.get(status.lower(), "")
+    dot = "●" if status.lower() == "complete" else "○"
+    return f"{color}{dot} {status}{Style.RESET_ALL}"
+
+
+def header(text: str) -> None:
+    """Print a bold, bright section header."""
+    print(f"\n{Style.BRIGHT}{Fore.CYAN}{text}{Style.RESET_ALL}")
+
+
+def fmt(task: Task) -> str:
+    """One-line, emoji + color label for a task."""
+    when = task.due_time.strftime("%H:%M") if task.due_time else "--:--"
+    return f"{when}  {task_emoji(task)} {task.title}  [{color_priority(task.priority)}]"
+
+
+def schedule_table(tasks: list[Task]) -> str:
+    """Render tasks as a structured CLI table via tabulate."""
+    rows = [
+        [
+            task.due_time.strftime("%H:%M") if task.due_time else "--:--",
+            f"{task_emoji(task)} {task.title}",
+            f"{task.duration_minutes} min",
+            color_priority(task.priority),
+            color_status(task.status),
+            task.recurrence if task.recurrence != "none" else "-",
+        ]
+        for task in tasks
+    ]
+    headers = ["Time", "Task", "Duration", "Priority", "Status", "Repeat"]
+    return tabulate(rows, headers=headers, tablefmt="fancy_grid")
 
 
 def build_world() -> Owner:
@@ -51,66 +131,56 @@ def build_world() -> Owner:
     return owner
 
 
-def fmt(task: Task) -> str:
-    """One-line label for a task."""
-    when = task.due_time.strftime("%H:%M") if task.due_time else "--:--"
-    return f"{when}  {task.title} ({task.duration_minutes} min, {task.priority})"
-
-
 def main() -> None:
     owner = build_world()
     scheduler = Scheduler()
     tasks = all_tasks(owner)
 
-    print(f"\n=== PawPal+ demo for {owner.name} ===")
+    print(f"\n{Style.BRIGHT}🐾 PawPal+ daily plan for {owner.name}{Style.RESET_ALL}")
 
-    # 1. Sort by time -----------------------------------------------------------
-    print("\n[Sorted by time]")
-    for task in scheduler.sort_by_time(tasks):
-        print("  " + fmt(task))
+    # 1. Sorted schedule as a structured table ----------------------------------
+    header("📋 Today's schedule (sorted by time)")
+    print(schedule_table(scheduler.sort_by_time(tasks)))
 
     # 2. Filter by pet ----------------------------------------------------------
-    print("\n[Filter: Luna's tasks]")
+    header("🐈 Luna's tasks only")
     for task in scheduler.sort_by_time(scheduler.filter_by_pet(owner, "Luna")):
         print("  " + fmt(task))
 
     # 3. Filter by status -------------------------------------------------------
-    print("\n[Filter: still pending]")
+    header("⏳ Still pending")
     for task in scheduler.sort_by_time(scheduler.filter_by_status(tasks, "pending")):
         print("  " + fmt(task))
 
     # 4. Recurring tasks --------------------------------------------------------
-    print("\n[Recurring tasks and their next occurrence]")
+    header("🔁 Recurring tasks and their next occurrence")
     for task in scheduler.get_recurring_tasks(tasks):
         nxt = scheduler.next_occurrence(task)
-        print(f"  {task.title} ({task.recurrence}) -> next {nxt:%Y-%m-%d %H:%M}")
+        print(f"  {task_emoji(task)} {task.title} ({task.recurrence}) "
+              f"-> next {nxt:%Y-%m-%d %H:%M}")
 
-    # 5a. Same-time warnings (lightweight, exact-match) -------------------------
-    print("\n[Same-time warnings]")
+    # 5. Conflict detection -----------------------------------------------------
+    header("⚠️  Scheduling conflicts")
     warnings = scheduler.conflict_warnings(tasks)
     if not warnings:
-        print("  No same-time clashes.")
+        print(f"  {Fore.GREEN}✓ No same-time clashes.{Style.RESET_ALL}")
     for message in warnings:
-        print("  " + message)
-
-    # 5b. Overlap detection (duration-aware) ------------------------------------
-    print("\n[Overlapping durations]")
-    conflicts = scheduler.find_conflicts(tasks)
-    if not conflicts:
-        print("  None.")
-    for a, b in conflicts:
-        print(f"  '{a.title}' ({a.due_time:%H:%M}) overlaps '{b.title}' ({b.due_time:%H:%M})")
+        print(f"  {Fore.RED}{message}{Style.RESET_ALL}")
+    for a, b in scheduler.find_conflicts(tasks):
+        print(f"  {Fore.MAGENTA}↔ '{a.title}' ({a.due_time:%H:%M}) overlaps "
+              f"'{b.title}' ({b.due_time:%H:%M}){Style.RESET_ALL}")
 
     # 6. Completing a recurring task auto-creates the next occurrence ------------
-    print("\n[Completing a recurring task]")
+    header("✅ Completing a recurring task")
     mochi = owner.pets[0]
     morning_walk = mochi.tasks[1]  # the daily 'Morning walk'
     print(f"  Before: Mochi has {len(mochi.tasks)} tasks.")
     follow_up = mochi.complete_task(morning_walk)
-    print(f"  Marked '{morning_walk.title}' complete (status={morning_walk.status}).")
+    print(f"  Marked '{morning_walk.title}' complete ({color_status(morning_walk.status)}).")
     if follow_up:
-        print(f"  Auto-created next '{follow_up.title}' for {follow_up.due_time:%Y-%m-%d %H:%M} "
-              f"(status={follow_up.status}).")
+        print(f"  {Fore.GREEN}Auto-created next '{follow_up.title}' for "
+              f"{follow_up.due_time:%Y-%m-%d %H:%M}{Style.RESET_ALL} "
+              f"({color_status(follow_up.status)}).")
     print(f"  After:  Mochi has {len(mochi.tasks)} tasks.")
 
     print()

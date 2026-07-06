@@ -1,0 +1,54 @@
+classDiagram
+    class Owner {
+        - name: str
+        - preferences: dict~str, str~
+        - pets: List~Pet~
+        + add_pet(pet: Pet) None
+        + remove_pet(pet: Pet) None
+    }
+
+    class Pet {
+        - name: str
+        - species: str
+        - age: int
+        - tasks: List~Task~
+        + add_task(task: Task) None
+        + remove_task(task: Task) None
+        + complete_task(task: Task) Optional~Task~
+    }
+
+    class Task {
+        - title: str
+        - duration_minutes: int
+        - priority: str
+        - due_time: Optional~datetime~
+        - notes: str
+        - status: str
+        - recurrence: str
+        + is_high_priority() bool
+        + is_recurring() bool
+        + recurrence_delta() Optional~timedelta~
+        + mark_complete() None
+        + spawn_next() Optional~Task~
+    }
+
+    class Scheduler {
+        + PRIORITY_RANK: dict
+        + build_daily_plan(owner: Owner) List~Task~
+        + sort_tasks(tasks: List~Task~) List~Task~
+        + sort_by_time(tasks: List~Task~) List~Task~
+        + filter_by_status(tasks: List~Task~, status: str) List~Task~
+        + filter_by_pet(owner: Owner, pet_name: str) List~Task~
+        + get_recurring_tasks(tasks: List~Task~) List~Task~
+        + next_occurrence(task: Task) Optional~datetime~
+        + find_conflicts(tasks: List~Task~) List~Tuple~
+        + conflict_warnings(tasks: List~Task~) List~str~
+        + explain_plan(tasks: List~Task~) str
+    }
+
+    Owner "1" o-- "0..*" Pet : owns
+    Pet "1" o-- "0..*" Task : has
+    Pet ..> Task : completes / spawns next
+    Task ..> Task : spawn_next() creates
+    Scheduler ..> Owner : reads pets
+    Scheduler ..> Task : sorts, filters, checks conflicts
