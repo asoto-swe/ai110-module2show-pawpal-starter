@@ -26,6 +26,8 @@ My initial UML design used four classes with a clear ownership hierarchy: an Own
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+One tradeoff is in how I warn about conflicts. My lightweight `conflict_warnings()` method only flags tasks that share the *exact* same start time (for example two tasks both at 12:00), rather than analyzing whether their durations overlap. This means a 12:00 task lasting 30 minutes and a 12:15 task would not be reported as a clash by the warning, even though they really overlap. I accepted this because exact-time matching is simple, fast, and predictable — it groups tasks by `due_time` and never produces confusing false positives, and it never crashes the program; it just returns warning messages the owner can act on. It is reasonable for a personal pet-care planner where most tasks are entered at round times and the goal is a helpful nudge, not strict calendar enforcement. I also kept a separate, more thorough `find_conflicts()` method that *is* duration-aware, so the deeper overlap check is still available when I want it — the tradeoff is really about keeping the everyday warning cheap and readable while leaving room for stricter checking later.
+
 ---
 
 ## 3. AI Collaboration

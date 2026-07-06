@@ -39,24 +39,51 @@ At minimum, your system should:
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
+st.subheader("Owner")
 owner_name = st.text_input("Owner name", value="Jordan")
-pet_name = st.text_input("Pet name", value="Mochi")
-species = st.selectbox("Species", ["dog", "cat", "other"])
 
-# Initialize owner and pet objects in session state
+# Initialize the owner in session state (the persistent "vault") once, and
+# seed it with one pet so the demo isn't empty on first load.
 if "owner" not in st.session_state:
     st.session_state.owner = Owner(name=owner_name)
-    st.session_state.pet = Pet(name=pet_name, species=species, age=3)
-    st.session_state.owner.add_pet(st.session_state.pet)
-else:
-    # Update names if changed
-    st.session_state.owner.name = owner_name
-    st.session_state.pet.name = pet_name
-    st.session_state.pet.species = species
+    st.session_state.owner.add_pet(Pet(name="Mochi", species="dog", age=3))
+
+owner = st.session_state.owner
+owner.name = owner_name  # keep the owner's name in sync with the input
+
+st.divider()
+
+st.markdown("### Add a Pet")
+st.caption("Submit this form to register a new pet with the owner.")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    new_pet_name = st.text_input("Pet name", value="Luna")
+with col2:
+    new_pet_species = st.selectbox("Species", ["dog", "cat", "other"])
+with col3:
+    new_pet_age = st.number_input("Age", min_value=0, max_value=40, value=3)
+
+if st.button("Add pet"):
+    # The form only gathers data; Owner.add_pet() is the method that handles it.
+    owner.add_pet(Pet(name=new_pet_name, species=new_pet_species, age=int(new_pet_age)))
+    st.rerun()  # re-run so the new pet appears in the selector/list immediately
+
+st.write("Current pets:")
+st.table([{"Name": p.name, "Species": p.species, "Age": p.age, "Tasks": len(p.tasks)} for p in owner.pets])
+
+st.divider()
 
 st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+st.caption("Pick a pet, then add care tasks to it.")
+
+# Choose which pet the new tasks attach to.
+selected_index = st.selectbox(
+    "Add tasks to",
+    range(len(owner.pets)),
+    format_func=lambda i: f"{owner.pets[i].name} ({owner.pets[i].species})",
+)
+current_pet = owner.pets[selected_index]
 
 col1, col2, col3 = st.columns(3)
 with col1:
@@ -72,58 +99,53 @@ if st.button("Add task"):
         duration_minutes=int(duration),
         priority=priority
     )
-    st.session_state.pet.add_task(new_task)
+    current_pet.add_task(new_task)  # Pet.add_task() handles the submitted task
     st.rerun()
 
-if st.session_state.pet.tasks:
-    st.write("Current tasks:")
+if current_pet.tasks:
+    st.write(f"Tasks for {current_pet.name}:")
     task_data = [
         {
             "Title": task.title,
             "Duration (min)": task.duration_minutes,
             "Priority": task.priority
         }
-        for task in st.session_state.pet.tasks
+        for task in current_pet.tasks
     ]
     st.table(task_data)
 else:
-    st.info("No tasks yet. Add one above.")
+    st.info(f"No tasks yet for {current_pet.name}. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Generates a plan across all of the owner's pets using the Scheduler.")
 
 if st.button("Generate schedule"):
-    if not st.session_state.pet.tasks:
+    scheduler = Scheduler()
+
+    # build_daily_plan gathers tasks across every pet and returns them ordered.
+    daily_plan = scheduler.build_daily_plan(owner)
+
+    if not daily_plan:
         st.warning("Please add at least one task before generating a schedule.")
     else:
-        scheduler = Scheduler()
-        try:
-            # Build daily plan for the owner
-            daily_plan = scheduler.build_daily_plan(st.session_state.owner)
-            
-            st.success("Schedule generated!")
-            st.markdown("### Your Daily Plan")
-            
-            # Sort and display tasks
-            sorted_tasks = scheduler.sort_tasks(st.session_state.pet.tasks)
-            plan_data = [
-                {
-                    "Task": task.title,
-                    "Duration": f"{task.duration_minutes} min",
-                    "Priority": task.priority.upper()
-                }
-                for task in sorted_tasks
-            ]
-            st.table(plan_data)
-            
-            # Explain the plan
-            st.markdown("### Schedule Explanation")
-            explanation = scheduler.explain_plan(sorted_tasks)
-            st.write(explanation)
-            
-        except NotImplementedError:
-            st.info(
-                "Scheduler methods need implementation. The system structure is ready—next step is to add the scheduling logic."
-            )
+        st.success("Schedule generated!")
+        st.markdown("### Your Daily Plan")
+
+        # Map each task back to the pet it belongs to, for display.
+        pet_of = {id(task): pet for pet in owner.pets for task in pet.tasks}
+        plan_data = [
+            {
+                "Task": task.title,
+                "Pet": pet_of[id(task)].name,
+                "Duration": f"{task.duration_minutes} min",
+                "Priority": task.priority.upper()
+            }
+            for task in daily_plan
+        ]
+        st.table(plan_data)
+
+        # Explain the plan.
+        st.markdown("### Schedule Explanation")
+        st.write(scheduler.explain_plan(daily_plan))
