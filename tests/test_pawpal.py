@@ -28,6 +28,23 @@ def test_adding_task_increases_pet_task_count():
     assert len(pet.tasks) == 2
 
 
+def test_sort_by_time_returns_tasks_in_chronological_order():
+    # Tasks deliberately created OUT of chronological order.
+    evening = Task("Evening walk", 20, "medium", due_time=datetime(2026, 7, 5, 18, 0))
+    morning = Task("Morning walk", 30, "high", due_time=datetime(2026, 7, 5, 7, 30))
+    noon = Task("Lunch", 10, "low", due_time=datetime(2026, 7, 5, 12, 0))
+    untimed = Task("Someday", 5, "low")  # no due_time -> sorts to the end
+
+    ordered = Scheduler().sort_by_time([evening, untimed, noon, morning])
+
+    assert [task.title for task in ordered] == [
+        "Morning walk",  # 07:30
+        "Lunch",         # 12:00
+        "Evening walk",  # 18:00
+        "Someday",       # no time -> last
+    ]
+
+
 def test_completing_daily_task_creates_next_occurrence():
     pet = Pet("Mochi", "dog", 3)
     due = datetime(2026, 7, 5, 7, 30)

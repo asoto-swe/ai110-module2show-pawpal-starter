@@ -64,22 +64,30 @@ TIME   TASK                PET          DURATION  PRIORITY
 
 ## 🧪 Testing PawPal+
 
+Run the automated test suite from the project root:
+
 ```bash
-# Run the full test suite:
-pytest
+python -m pytest
 
-# Run with coverage:
-pytest --cov
+# Optional: run with coverage
+python -m pytest --cov
 ```
 
-Sample test output:
+### What the tests cover
 
-```
-# Paste your pytest output here
-```
-..................                                                       [100%]
-18 passed in 0.06s
-=== app still runs ===
+The suite lives in [`tests/`](tests/) and covers the core scheduling behaviors:
+
+- **Sorting correctness** — tasks come back in chronological order (`sort_by_time`) and in
+  priority order with proper tie-breaking (`sort_tasks`), including untimed tasks sorting last.
+- **Recurrence logic** — completing a `daily` task creates a new task for the following day (and
+  `weekly` advances a week), while one-off tasks and tasks without a `due_time` spawn nothing.
+- **Conflict detection** — the scheduler flags tasks that share the same start time
+  (`conflict_warnings`) and stays quiet when times differ.
+- **Filtering** — tasks can be narrowed by completion status and by pet.
+- **Data-model integrity** — pets and owners don't share mutable lists, and `build_daily_plan`
+  gathers tasks across every pet.
+
+
 ## 📐 Smarter Scheduling
 
 All scheduling logic lives in the `Scheduler` class in [`pawpal_system.py`](pawpal_system.py),
@@ -117,3 +125,29 @@ Describe your app in numbered steps so a reader can follow along without watchin
 5. <!-- Add more steps as needed -->
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+
+
+### Successful test run
+
+```
+============================= test session starts =============================
+platform win32 -- Python 3.14.4, pytest-9.0.3, pluggy-1.6.0
+rootdir: C:\Users\alexa\OneDrive\Documents\ai110-module2show-pawpal-starter
+plugins: anyio-4.13.0, respx-0.23.1
+collected 27 items
+
+tests\test_pawpal.py .........                                           [ 33%]
+tests\test_pawpal_system.py ..................                           [100%]
+
+============================= 27 passed in 0.05s ==============================
+```
+
+### Confidence Level
+
+⭐⭐⭐⭐☆ (4 / 5)
+
+All 27 tests pass and cover the core sorting, recurrence, filtering, and conflict-detection
+paths plus key edge cases. I held back the fifth star because a few edge cases are still
+untested — recurrence that *chains* across multiple completions, duplicate/not-found pet lookups,
+and the exact adjacency boundary in the duration-aware `find_conflicts` (a task ending exactly
+when the next begins). Once those are covered I'd rate it 5/5.
